@@ -4,7 +4,6 @@ import os
 import re
 import random
 import csv
-from scipy import sparse
 # TODO S-NODF, W-NODF
 
 
