@@ -132,7 +132,7 @@ if __name__ == '__main__':
                     edgelist, delimiter=',', data=[('loan value', float)])
             try:
                 N = NODF(network)
-            except:
+            except ValueError:
                 continue
             print(filename)
             c = []
