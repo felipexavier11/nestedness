@@ -119,35 +119,35 @@ def null_model(network, source_node, samples=1000):
 
     return np.mean(N), np.std(N)
 
+if __name__ == '__main__':
+    input_path = os.path.abspath('input')
+    output_path = os.path.abspath('output')
 
-input_path = os.path.abspath('input')
-output_path = os.path.abspath('output')
+    for filename in os.listdir(input_path):
+        if (re.match('^.*\.csv$', filename, re.IGNORECASE)):
+            with open(os.path.join(input_path, filename), 'rb') as edgelist:
+                edgelist.readline()  # Skips first line
+                # FIXME if firms and banks can have the same ID this will break
+                network = nx.bipartite.read_edgelist(
+                    edgelist, delimiter=',', data=[('loan value', float)])
+            try:
+                N = NODF(network)
+            except:
+                continue
+            print(filename)
+            c = []
+            for node, data in network.nodes(data=True):
+                N_mean, N_std = null_model(network, node, samples=1000)
+                node_type = 'bank' if data['bipartite'] == 0 else 'firm'
+                c.append({'id': node, 'contribution': (
+                    N-N_mean)/N_std, 'type': node_type})
 
-for filename in os.listdir(input_path):
-    if (re.match('^.*\.csv$', filename, re.IGNORECASE)):
-        with open(os.path.join(input_path, filename), 'rb') as edgelist:
-            edgelist.readline()  # Skips first line
-            # FIXME if firms and banks can have the same ID this will break
-            network = nx.bipartite.read_edgelist(
-                edgelist, delimiter=',', data=[('loan value', float)])
-        try:
-            N = NODF(network)
-        except:
-            continue
-        print(filename)
-        c = []
-        for node, data in network.nodes(data=True):
-            N_mean, N_std = null_model(network, node, samples=1000)
-            node_type = 'bank' if data['bipartite'] == 0 else 'firm'
-            c.append({'id': node, 'contribution': (
-                N-N_mean)/N_std, 'type': node_type})
-
-        output_folder = os.path.join(output_path, os.path.splitext(filename)[0])
-        os.makedirs(output_folder, exist_ok=True)
-        output_file_path = os.path.join(output_folder, 'contributions.csv')
-        with open(output_file_path, 'w', newline='') as output_file:
-            csv_writer = csv.DictWriter(output_file, fieldnames=[
-                                        'id', 'contribution', 'type'])
-            csv_writer.writeheader()
-            for contribution in c:
-                csv_writer.writerow(contribution)
+            output_folder = os.path.join(output_path, os.path.splitext(filename)[0])
+            os.makedirs(output_folder, exist_ok=True)
+            output_file_path = os.path.join(output_folder, 'contributions.csv')
+            with open(output_file_path, 'w', newline='') as output_file:
+                csv_writer = csv.DictWriter(output_file, fieldnames=[
+                                            'id', 'contribution', 'type'])
+                csv_writer.writeheader()
+                for contribution in c:
+                    csv_writer.writerow(contribution)
