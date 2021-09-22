@@ -4,6 +4,7 @@ import os
 import re
 import random
 import csv
+import subprocess
 # TODO S-NODF, W-NODF
 
 
@@ -119,34 +120,65 @@ def null_model(network, source_node, samples=1000):
 
     return np.mean(N), np.std(N)
 
+
 if __name__ == '__main__':
+    bin_path = os.path.abspath('bin')
     input_path = os.path.abspath('input')
     output_path = os.path.abspath('output')
+    env = os.environ.copy()
+    env['PATH'] = '.:' + env['PATH']
+    count = 0
 
     for filename in os.listdir(input_path):
         if (re.match('^.*\.csv$', filename, re.IGNORECASE)):
+            print(filename)
             with open(os.path.join(input_path, filename), 'rb') as edgelist:
                 edgelist.readline()  # Skips first line
-                # FIXME if firms and banks can have the same ID this will break
+                # If firms and banks can share the same ID this is bad
                 network = nx.bipartite.read_edgelist(
                     edgelist, delimiter=',', data=[('loan value', float)])
-            try:
-                N = NODF(network)
-            except ValueError:
-                continue
-            print(filename)
-            c = []
-            for node, data in network.nodes(data=True):
-                N_mean, N_std = null_model(network, node, samples=1000)
-                node_type = 'bank' if data['bipartite'] == 0 else 'firm'
-                c.append({'id': node, 'contribution': (
-                    N-N_mean)/N_std, 'type': node_type})
 
-            output_folder = os.path.join(output_path, os.path.splitext(filename)[0])
+            sorted_banks = sorted([node for node, data in network.nodes(
+                data=True) if data["bipartite"] == 0], key=network.degree, reverse=True)
+            sorted_firms = sorted([node for node, data in network.nodes(
+                data=True) if data["bipartite"] == 1], key=network.degree, reverse=True)
+            A = nx.bipartite.biadjacency_matrix(
+                network, row_order=sorted_banks, column_order=sorted_firms).toarray()
+            np.savetxt(os.path.join(bin_path, 'matrix' +
+                       str(count) + '.in.txt'), A, fmt='%d')
+            subprocess.run('contributions -i ' + str(count) +
+                           ' --contributions', cwd=bin_path, shell=True, env=env)
+
+            row_contributions = []
+            column_contributions = []
+            c = []
+            with open(os.path.join(bin_path, 'matrix' + str(count) + '.contributions.csv'), 'r', newline='') as input_file:
+                csv_reader = csv.reader(input_file, delimiter=',')
+                next(csv_reader)
+                for row in csv_reader:
+                    if (row[0] == 'row'):
+                        row_contributions.append(row[1])
+                    else:
+                        column_contributions.append(row[1])
+            for id, contribution in zip(sorted_banks, row_contributions):
+                c.append({'id': id, 'contribution': contribution, 'type': 'bank'})
+            for id, contribution in zip(sorted_firms, column_contributions):
+                c.append({'id': id, 'contribution': contribution, 'type': 'firm'})
+
+            output_folder = os.path.join(
+                output_path, os.path.splitext(filename)[0])
             os.makedirs(output_folder, exist_ok=True)
-            output_file_path = os.path.join(output_folder, 'contributions.csv')
-            with open(output_file_path, 'w', newline='') as output_file:
-                csv_writer = csv.DictWriter(output_file, fieldnames=[
+            for output_filename in os.listdir(bin_path):
+                if (re.match('^matrix' + str(count) + '.*', output_filename, re.IGNORECASE)):
+                    try:
+                        os.remove(os.path.join(bin_path, output_filename))
+                    except FileNotFoundError:
+                        pass
+
+            contributions_filename = os.path.join(
+                output_folder, 'contributions.csv')
+            with open(contributions_filename, 'w', newline='') as contributions_file:
+                csv_writer = csv.DictWriter(contributions_file, fieldnames=[
                                             'id', 'contribution', 'type'])
                 csv_writer.writeheader()
                 for contribution in c:
