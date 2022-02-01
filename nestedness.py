@@ -132,11 +132,22 @@ if __name__ == '__main__':
     for filename in os.listdir(input_path):
         if (re.match('^.*\.csv$', filename, re.IGNORECASE)):
             print(filename)
-            with open(os.path.join(input_path, filename), 'rb') as edgelist:
+            network = nx.Graph()
+            lenders = []
+            borrowers = []
+            loans = []
+            with open(os.path.join(input_path, filename), 'r') as edgelist:
                 edgelist.readline()  # Skips first line
-                # If firms and banks can share the same ID this is bad
-                network = nx.bipartite.read_edgelist(
-                    edgelist, delimiter=',', data=[('loan value', float)])
+                for edge in edgelist:
+                    lender, borrower, loan_value = edge.strip().split(',')
+                    lender = lender + '_lender'
+                    borrower = borrower + '_borrower'
+                    lenders.append(lender)
+                    borrowers.append(borrower)
+                    loans.append((lender, borrower))
+                network.add_nodes_from(lenders, bipartite=0)
+                network.add_nodes_from(borrowers, bipartite=1)
+                network.add_edges_from(loans)
 
             sorted_banks = sorted([node for node, data in network.nodes(
                 data=True) if data["bipartite"] == 0], key=network.degree, reverse=True)
@@ -148,7 +159,8 @@ if __name__ == '__main__':
                        str(count) + '.in.txt'), A, fmt='%d')
             subprocess.run('contributions -i ' + str(count) +
                            ' --contributions', cwd=bin_path, shell=True, env=env)
-
+            subprocess.run('contributions -i ' + str(count) +
+                           ' --nodf', cwd=bin_path, shell=True, env=env)
             row_contributions = []
             column_contributions = []
             c = []
@@ -161,9 +173,11 @@ if __name__ == '__main__':
                     else:
                         column_contributions.append(row[1])
             for id, contribution in zip(sorted_banks, row_contributions):
-                c.append({'id': id, 'contribution': contribution, 'type': 'bank'})
+                c.append({'id': id, 'contribution': contribution, 'type': 'lender'})
             for id, contribution in zip(sorted_firms, column_contributions):
-                c.append({'id': id, 'contribution': contribution, 'type': 'firm'})
+                c.append({'id': id, 'contribution': contribution, 'type': 'borrower'})
+            with open(os.path.join(bin_path, 'matrix' + str(count) + '.nodf.txt'), 'r') as input_file:
+                nodf = input_file.readline()
 
             output_folder = os.path.join(
                 output_path, os.path.splitext(filename)[0])
@@ -183,3 +197,8 @@ if __name__ == '__main__':
                 csv_writer.writeheader()
                 for contribution in c:
                     csv_writer.writerow(contribution)
+
+            nodf_filename = os.path.join(
+                output_folder, 'nodf.txt')
+            with open(nodf_filename, 'w') as nodf_file:
+                nodf_file.write(nodf)
