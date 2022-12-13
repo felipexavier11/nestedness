@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -115,7 +116,8 @@ double stdev(vector<double> N, double N_mean) {
 }
 
 tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
-                                                 int samples = 1000) {
+                                                 int samples = 1000,
+                                                 short type = 0) {
   vector<double> N_sample(samples);
   int n = A[0].size();
   int m = A.size();
@@ -128,20 +130,25 @@ tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
   mt19937_64 generator;
   uniform_real_distribution<double> distribution(0, 1);
   vector<int> unmodified_row(n), unmodified_col(m);
+  vector<int> current_column(m); // For null model type 1
 
   for (size_t i = 0; i < m; i++) {
     for (size_t j = 0; j < n; j++) {
       unmodified_row[j] = A[i][j];
     }
     for (size_t k = 0; k < samples; k++) {
-      for (size_t j = 0; j < n; j++) {
-        double p =
-            ((double)row_degrees[i] / n + (double)col_degrees[j] / m) / 2.0;
-        if (distribution(generator) < p) {
-          A[i][j] = 1;
-        } else {
-          A[i][j] = 0;
+      if (type == 0) {
+        for (size_t j = 0; j < n; j++) {
+          double p =
+              ((double)row_degrees[i] / n + (double)col_degrees[j] / m) / 2.0;
+          if (distribution(generator) < p) {
+            A[i][j] = 1;
+          } else {
+            A[i][j] = 0;
+          }
         }
+      } else if (type == 1) {
+        shuffle(A[i].begin(), A[i].end(), generator);
       }
       N_sample[k] = NODF(A, degree_sequence(A));
     }
@@ -157,15 +164,24 @@ tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
   for (size_t j = 0; j < n; j++) {
     for (size_t i = 0; i < m; i++) {
       unmodified_col[i] = A[i][j];
+      current_column[i] = A[i][j];
     }
     for (size_t k = 0; k < samples; k++) {
-      for (size_t i = 0; i < m; i++) {
-        double p =
-            ((double)row_degrees[i] / n + (double)col_degrees[j] / m) / 2.0;
-        if (distribution(generator) < p) {
-          A[i][j] = 1;
-        } else {
-          A[i][j] = 0;
+      if (type == 0) {
+        for (size_t i = 0; i < m; i++) {
+          double p =
+              ((double)row_degrees[i] / n + (double)col_degrees[j] / m) / 2.0;
+          if (distribution(generator) < p) {
+            A[i][j] = 1;
+          } else {
+            A[i][j] = 0;
+          }
+        }
+      } else if (type == 1) {
+        shuffle(current_column.begin(), current_column.end(), generator);
+        
+        for (size_t i = 0; i < m; i++) {
+          A[i][j] = current_column[i];
         }
       }
       N_sample[k] = NODF(A, degree_sequence(A));
@@ -183,6 +199,7 @@ tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
 
 int main(int argc, char const *argv[]) {
   bool return_nodf = false, return_contributions = false;
+  short null_model_type = 0;
   string line;
   string i_matrix;
   vector<vector<int>> A;
@@ -196,6 +213,8 @@ int main(int argc, char const *argv[]) {
     } else if (arg == "-i") {
       i_matrix = argv[i + 1];
       i++;
+    } else if (arg == "--null-model") {
+      null_model_type = stoi(argv[i + 1]);
     }
   }
 
@@ -219,7 +238,7 @@ int main(int argc, char const *argv[]) {
     ofstream matrix_out("matrix" + i_matrix + ".contributions.csv");
     matrix_out.precision(10);
     matrix_out << "type,contribution" << endl;
-    tuple<vector<double>, vector<double>> res = null_model(A, 1000);
+    tuple<vector<double>, vector<double>> res = null_model(A, 1000, null_model_type);
     for (auto &&i : get<0>(res)) {
       matrix_out << "row," << i << endl;
     }

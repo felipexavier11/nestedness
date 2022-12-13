@@ -158,7 +158,7 @@ if __name__ == '__main__':
             np.savetxt(os.path.join(bin_path, 'matrix' +
                        str(count) + '.in.txt'), A, fmt='%d')
             subprocess.run('contributions -i ' + str(count) +
-                           ' --contributions', cwd=bin_path, shell=True, env=env)
+                           ' --contributions --null-model 0', cwd=bin_path, shell=True, env=env)
             subprocess.run('contributions -i ' + str(count) +
                            ' --nodf', cwd=bin_path, shell=True, env=env)
             row_contributions = []
