@@ -131,7 +131,9 @@ if __name__ == '__main__':
 
     for filename in os.listdir(input_path):
         if (re.match('^.*\.csv$', filename, re.IGNORECASE)):
+            print('-'*40)
             print(filename)
+            print('-'*40)
             network = nx.Graph()
             lenders = []
             borrowers = []

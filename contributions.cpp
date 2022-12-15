@@ -217,6 +217,18 @@ int main(int argc, char const *argv[]) {
       null_model_type = stoi(argv[i + 1]);
     }
   }
+  cout << "Run parameters:" << endl;
+  cout << "i_matrix: " << i_matrix << endl;
+  cout << "return_nodf: " << return_nodf << endl;
+  cout << "return_contributions: " << return_contributions << endl;
+  cout << "null_model_type: ";
+  if (null_model_type == 0)
+  {
+    cout << "0 (probabilistic)" << endl;
+  } else if (null_model_type == 1)
+  {
+    cout << "1 (shuffle)" << endl;
+  }
 
   ifstream matrix_in("matrix" + i_matrix + ".in.txt");
 
