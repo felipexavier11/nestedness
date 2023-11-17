@@ -165,6 +165,12 @@ if __name__ == '__main__':
                            ' --nodf', cwd=bin_path, shell=True, env=env)
             row_contributions = []
             column_contributions = []
+            row_N_obs = []
+            row_N_mean = []
+            row_N_std = []
+            column_N_obs = []
+            column_N_mean = []
+            column_N_std = []
             c = []
             with open(os.path.join(bin_path, 'matrix' + str(count) + '.contributions.csv'), 'r', newline='') as input_file:
                 csv_reader = csv.reader(input_file, delimiter=',')
@@ -172,12 +178,19 @@ if __name__ == '__main__':
                 for row in csv_reader:
                     if (row[0] == 'row'):
                         row_contributions.append(row[1])
+                        row_N_obs.append(row[2])
+                        row_N_mean.append(row[3])
+                        row_N_std.append(row[4])
                     else:
                         column_contributions.append(row[1])
-            for id, contribution in zip(sorted_banks, row_contributions):
-                c.append({'id': id, 'contribution': contribution, 'type': 'lender'})
-            for id, contribution in zip(sorted_firms, column_contributions):
-                c.append({'id': id, 'contribution': contribution, 'type': 'borrower'})
+                        column_N_obs.append(row[2])
+                        column_N_mean.append(row[3])
+                        column_N_std.append(row[4])
+
+            for id, contribution, N_obs, N_mean, N_std in zip(sorted_banks, row_contributions, row_N_obs, row_N_mean, row_N_std):
+                c.append({'id': id, 'contribution': contribution, 'type': 'lender', 'N_obs': N_obs, 'N_mean': N_mean, 'N_std': N_std})
+            for id, contribution, N_obs, N_mean, N_std in zip(sorted_firms, column_contributions, column_N_obs, column_N_mean, column_N_std):
+                c.append({'id': id, 'contribution': contribution, 'type': 'borrower', 'N_obs': N_obs, 'N_mean': N_mean, 'N_std': N_std})
             with open(os.path.join(bin_path, 'matrix' + str(count) + '.nodf.txt'), 'r') as input_file:
                 nodf = input_file.readline()
 
@@ -195,7 +208,7 @@ if __name__ == '__main__':
                 output_folder, 'contributions.csv')
             with open(contributions_filename, 'w', newline='') as contributions_file:
                 csv_writer = csv.DictWriter(contributions_file, fieldnames=[
-                                            'id', 'contribution', 'type'])
+                                            'id', 'contribution', 'N_obs', 'N_mean', 'N_std', 'type'])
                 csv_writer.writeheader()
                 for contribution in c:
                     csv_writer.writerow(contribution)

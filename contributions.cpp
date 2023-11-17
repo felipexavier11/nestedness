@@ -115,13 +115,13 @@ double stdev(vector<double> N, double N_mean) {
   return sqrt(mean(x));
 }
 
-tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
-                                                 int samples = 1000,
-                                                 short type = 0) {
+tuple<vector<double>, vector<double>, vector<double>, vector<double>, double> null_model(vector<vector<int>> A,
+                                                                                  int samples = 1000,
+                                                                                  short type = 0) {
   vector<double> N_sample(samples);
   int n = A[0].size();
   int m = A.size();
-  vector<double> c_row(m), c_col(n);
+  vector<double> c_row(m), c_col(n), node_N_mean(m+n), node_N_std(m+n);
   tuple<vector<int>, vector<int>> degrees = degree_sequence(A);
   vector<int> row_degrees = get<0>(degrees);
   vector<int> col_degrees = get<1>(degrees);
@@ -159,6 +159,8 @@ tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
     N_mean = mean(N_sample);
     N_std = stdev(N_sample, N_mean);
     c_row[i] = (N - N_mean) / N_std;
+    node_N_mean[i] = N_mean;
+    node_N_std[i] = N_std;
   }
 
   for (size_t j = 0; j < n; j++) {
@@ -193,8 +195,10 @@ tuple<vector<double>, vector<double>> null_model(vector<vector<int>> A,
     N_mean = mean(N_sample);
     N_std = stdev(N_sample, N_mean);
     c_col[j] = (N - N_mean) / N_std;
+    node_N_mean[m + j] = N_mean;
+    node_N_std[m + j] = N_std;
   }
-  return make_tuple(c_row, c_col);
+  return make_tuple(c_row, c_col, node_N_mean, node_N_std, N);
 }
 
 int main(int argc, char const *argv[]) {
@@ -249,13 +253,20 @@ int main(int argc, char const *argv[]) {
   if (return_contributions) {
     ofstream matrix_out("matrix" + i_matrix + ".contributions.csv");
     matrix_out.precision(10);
-    matrix_out << "type,contribution" << endl;
-    tuple<vector<double>, vector<double>> res = null_model(A, 1000, null_model_type);
+    matrix_out << "type,contribution,N_obs,N_mean,N_std" << endl;
+    tuple<vector<double>, vector<double>, vector<double>, vector<double>, double> res = null_model(A, 1000, null_model_type);
+    double N_obs = get<4>(res);
+    vector<double> N_mean = get<2>(res);
+    vector<double> N_std = get<3>(res);
+    int count = 0;
+
     for (auto &&i : get<0>(res)) {
-      matrix_out << "row," << i << endl;
+      matrix_out << "row," << i << "," << N_obs << "," << N_mean[count] << "," << N_std[count] << endl;
+      ++count;
     }
     for (auto &&i : get<1>(res)) {
-      matrix_out << "column," << i << endl;
+      matrix_out << "column," << i << "," << N_obs << "," << N_mean[count] << "," << N_std[count] << endl;
+      ++count;
     }
   }
 
